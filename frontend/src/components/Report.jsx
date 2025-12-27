@@ -1,51 +1,100 @@
 import React from 'react';
 
-const Report = ({ data }) => {
-  if (!data) return null;
+const Report = ({ data, isLoading }) => {
+
+  if (isLoading) {
+    return (
+      <div className="panel report-panel">
+        <div className="panel-header">
+          <h2><span>📊</span> Analysis Report</h2>
+        </div>
+        <div className="empty-state">
+          <div className="empty-icon">⏳</div>
+          <p>Analyzing code structure...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="panel report-panel">
+        <div className="panel-header">
+          <h2><span>📊</span> Analysis Report</h2>
+        </div>
+        <div className="empty-state">
+          <div className="empty-icon">👋</div>
+          <p>Ready to analyze. Run a scan to see results here.</p>
+        </div>
+      </div>
+    )
+  }
 
   if (data.error) {
-    return <div className="error-banner">{data.error}</div>;
+    return (
+      <div className="panel report-panel">
+        <div className="panel-header">
+          <h2><span>⚠️</span> Error</h2>
+        </div>
+        <div className="empty-state" style={{ color: '#ef4444' }}>
+          <p>{data.error}</p>
+        </div>
+      </div>
+    );
   }
 
   const { summary, smells } = data;
 
   return (
-    <div className="report-container">
-      <h2>Analysis Report</h2>
+    <div className="panel report-panel fade-in">
+      <div className="panel-header">
+        <h2><span>📊</span> Analysis Report</h2>
+      </div>
 
-      <div className="summary-cards">
-        <div className="card">
-          <h3>Total Lines</h3>
-          <p>{summary.totalLines}</p>
+      <div className="stats-grid">
+        <div className="stat-card">
+          <span className="stat-value">{summary.totalLines}</span>
+          <span className="stat-label">Lines of Code</span>
         </div>
-        <div className="card">
-          <h3>Detected Smells</h3>
-          <p className={summary.totalSmells > 0 ? "highlight-bad" : "highlight-good"}>
+        <div className="stat-card" style={{ borderColor: summary.totalSmells > 0 ? 'var(--severity-medium)' : 'var(--severity-low)' }}>
+          <span className="stat-value" style={{ color: summary.totalSmells > 0 ? 'var(--severity-high)' : 'var(--severity-low)' }}>
             {summary.totalSmells}
-          </p>
+          </span>
+          <span className="stat-label">Identified Smells</span>
         </div>
       </div>
 
-      <h3>Detailed Smell List</h3>
-      {smells.length === 0 ? (
-        <p className="clean-message">✅ No classic code smells detected.</p>
-      ) : (
-        <div className="smell-list">
-          {smells.map((smell, index) => (
-            <div key={index} className={`smell-item severity-${smell.severity.toLowerCase()}`}>
-              <div className="smell-header">
-                <span className="smell-type">{smell.type}</span>
-                <span className={`severity-tag ${smell.severity.toLowerCase()}`}>{smell.severity}</span>
+      <div className="smell-feed">
+        {smells.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-icon">✅</div>
+            <p>No code smells detected. Great job!</p>
+          </div>
+        ) : (
+          smells.map((smell, index) => (
+            <div key={index} className={`smell-card card-severity-${smell.severity}`}>
+              <div className="card-header">
+                <span className="smell-title">{smell.type}</span>
+                <span className={`badge badge-${smell.severity}`}>{smell.severity} Priority</span>
               </div>
-              <div className="smell-details">
-                <p><strong>Location:</strong> {smell.location}</p>
-                <p><strong>Reason:</strong> {smell.reason}</p>
-                <p><strong>Refactoring:</strong> <em>{smell.suggestedRefactoring}</em></p>
+
+              <div className="card-row">
+                <span className="card-label">Location:</span>
+                <span className="card-value">{smell.location}</span>
+              </div>
+              <div className="card-row">
+                <span className="card-label">Issue:</span>
+                <span className="card-value">{smell.reason}</span>
+              </div>
+
+              <div className="refactor-tip">
+                <span>💡 Suggested Fix: </span>
+                <span>{smell.suggestedRefactoring}</span>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          ))
+        )}
+      </div>
     </div>
   );
 };

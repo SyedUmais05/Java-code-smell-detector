@@ -1,41 +1,80 @@
 import React, { useState } from 'react';
 
 const CodeInput = ({ onAnalyze, isLoading }) => {
-  const [code, setCode] = useState(`public class UserManager {
+  const [code, setCode] = useState(`public class SmellyClass {
+    // 1. Primitive Obsession
+    private int id;
     private String name;
-    private int age;
-    private String address;
-    // ... many fields ...
+    private String email;
+    // ...
 
-    public void processUser() {
-        // ... long method ...
-        System.out.println("Processing " + name);
-        if (age > 18) {
-             System.out.println("Adult");
-             // ... more logic ...
+    // 3. Long Method
+    public void complexLogic(int type) {
+        System.out.println("Start");
+        int result = 0;
+        switch (type) { 
+            case 1: result = 10; break;
+            case 2: result = 20; break;
+            case 3: result = 30; break;
+            case 4: result = 40; break;
+            case 5: result = 50; break;
+            case 6: result = 60; break; 
         }
+        // ... more logic ...
     }
 }`);
 
-  const handleSubmit = () => {
-    onAnalyze(code);
+  const lineCount = code.split('\n').length;
+  const isOverLimit = lineCount > 500;
+
+  // Generate line numbers
+  const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1).join('\n');
+
+  const handleScroll = (e) => {
+    const gutter = document.getElementById('line-gutter');
+    if (gutter) {
+      gutter.scrollTop = e.target.scrollTop;
+    }
   };
 
   return (
-    <div className="input-container">
-      <h2>Source Code Input</h2>
-      <textarea
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        rows={20}
-        placeholder="Paste Java code here..."
-        disabled={isLoading}
-      />
-      <div className="actions">
-        <button onClick={handleSubmit} disabled={isLoading}>
-          {isLoading ? 'Analyzing...' : 'Analyze Code'}
+    <div className="panel input-panel">
+      <div className="panel-header">
+        <h2>
+          <span>💻</span> Source Code
+        </h2>
+      </div>
+
+      <div className="panel-body">
+        <div className="editor-wrapper">
+          <div className="editor-container">
+            <div className="line-gutter" id="line-gutter">
+              <pre>{lineNumbers}</pre>
+            </div>
+            <textarea
+              className="code-editor"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              onScroll={handleScroll}
+              placeholder="// Paste your Java Class here..."
+              disabled={isLoading}
+              spellCheck="false"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="action-bar">
+        <div className="line-count" style={{ color: isOverLimit ? '#ef4444' : 'inherit' }}>
+          {lineCount} lines {isOverLimit && '(Limit: 500)'}
+        </div>
+        <button
+          className="btn-primary"
+          onClick={() => onAnalyze(code)}
+          disabled={isLoading || !code.trim() || isOverLimit}
+        >
+          {isLoading ? 'Scanning...' : 'Analyze Code'}
         </button>
-        <span className="hint">{code.split('\n').length} lines (Max 500)</span>
       </div>
     </div>
   );

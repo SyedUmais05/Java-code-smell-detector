@@ -1,5 +1,5 @@
 import javalang
-from javalang.tree import MethodDeclaration, ClassDeclaration, SwitchStatement, FormalParameter, BasicType, ReferenceType, MemberReference, MethodInvocation
+from javalang.tree import MethodDeclaration, ClassDeclaration, SwitchStatement, FormalParameter, BasicType, ReferenceType, MemberReference, MethodInvocation, ThrowStatement, ClassCreator
 import collections
 
 # Thresholds (Configurable)
@@ -9,56 +9,33 @@ THRESHOLDS = {
     "LARGE_CLASS_METHODS": 15,
     "LONG_PARAMETER_LIST": 4,
     "SWITCH_CASES": 5,
-    "DUPLICATE_CODE_BLOCK": 6
+    "DUPLICATE_CODE_BLOCK": 6,
+    "DATA_CLUMP_FIELDS": 3,
+    "MESSAGE_CHAIN_LENGTH": 3,
+    "LAZY_CLASS_METHODS": 3
 }
 
 def detect_bloaters(tree, source_code_lines):
     smells = []
     
-    # 1. Long Method
-    # 2. Long Parameter List
+    # 1. Long Method & 2. Long Parameter List (Existing)
     for path, node in tree.filter(MethodDeclaration):
-        # Long Method
+        # Long Method Heuristic
         if node.position:
-            # Estimate lines: strictly, javalang doesn't give end line easily without full token parsing, 
-            # but we can try to estimate or if we had tokens. 
-            # For simplicity in this constrained tool, we might need a workaround or assume end_line is available if we mapped it.
-            # Actually, without tokens, exact line count of a node is hard.
-            # Heuristic: Difference between this node's start and next node's start?
-            # Better heuristic for this tool: Count statements in body? 
-            # User asked for "Long Method -> > 40 lines". 
-            # We will use a line-counting heuristic based on the body statements range if available, 
-            # or roughly count statements * 1.5. 
-            # Let's try to find the start line and just count body statements as a proxy if we can't get end line?
-            # Wait, if we have the source code, we can maybe map it?
-            # Let's stick to a simpler "Statement Count" proxy for lines if exact lines are hard, 
-            # OR try to track positions.
-            # Javalang nodes have .position (line, col). 
-            
-            # Let's use a rough heuristic: 
-            # Length = (Last statement line) - (First statement line) + overhead?
-            
             start_line = node.position.line
             end_line = start_line
             if node.body:
-                # Find the max line in the body
                 for statement in node.body:
-                     # Recursive search for max line in this subtree could be expensive/complex
-                     # Let's just look at direct children for now or walk the body
                      if hasattr(statement, 'position') and statement.position:
                          end_line = max(end_line, statement.position.line)
+            length = (end_line - start_line) + 2 
             
-            # This is lower bound. Let's assume some formatting overhead.
-            length = (end_line - start_line) + 2 # +2 for braces
-            
-            # To be more robust, we could just re-scan the source code, but matching names is tricky.
-            # Let's trust the heuristics for now.
             if length > THRESHOLDS["LONG_METHOD"]:
                  smells.append({
                     "type": "Long Method",
                     "location": f"{node.name}()",
                     "severity": "High" if length > THRESHOLDS["LONG_METHOD"] * 2 else "Medium",
-                    "reason": f"Method length estimated at {length} lines (threshold: {THRESHOLDS['LONG_METHOD']})",
+                    "reason": f"Method length estimated at {length} lines",
                     "suggestedRefactoring": "Extract Method"
                 })
 
@@ -72,19 +49,9 @@ def detect_bloaters(tree, source_code_lines):
                 "suggestedRefactoring": "Introduce Parameter Object"
             })
 
-    # 3. Large Class
+    # 3. Large Class (Existing)
     for path, node in tree.filter(ClassDeclaration):
         method_count = len(node.methods)
-        # Estimate class lines similar to method lines
-        start_line = node.position.line if node.position else 1
-        # It's hard to get exact end of class without token stream.
-        # But usually entire file is one class in these academic snippets.
-        # We can use total file lines if it's the main class.
-        # OR count members.
-        
-        # Smart Heuristic: If this is the *only* or *main* class, use total logical lines.
-        # Otherwise, just use method count as the primary indicator for Large Class here.
-        
         if method_count > THRESHOLDS["LARGE_CLASS_METHODS"]:
              smells.append({
                 "type": "Large Class",
@@ -94,7 +61,7 @@ def detect_bloaters(tree, source_code_lines):
                 "suggestedRefactoring": "Extract Class"
             })
             
-    # 4. Primitive Obsession (Heuristic: > 60% of fields are primitives)
+    # 4. Primitive Obsession (Existing)
     for path, node in tree.filter(ClassDeclaration):
         fields = [f for f in node.fields]
         if not fields: continue
@@ -102,7 +69,6 @@ def detect_bloaters(tree, source_code_lines):
         primitive_count = 0
         total_fields = 0
         for field in fields:
-            # field.type is ReferenceType or BasicType
             if isinstance(field.type, BasicType):
                 primitive_count += 1
             elif isinstance(field.type, ReferenceType) and field.type.name in ["String", "Integer", "Double", "Boolean"]:
@@ -118,14 +84,41 @@ def detect_bloaters(tree, source_code_lines):
                 "suggestedRefactoring": "Replace Data Value with Object"
             })
 
+    # 5. Data Clumps (New: Repeated groups of >= 3 parameters)
+    # Heuristic: Find method signatures with overlapping parameter sequences of types/names
+    param_groups = collections.Counter()
+    for path, node in tree.filter(MethodDeclaration):
+        if not node.parameters: continue
+        # Extract types
+        params = []
+        for p in node.parameters:
+            t = p.type.name if hasattr(p.type, 'name') else 'Unknown'
+            params.append(t)
+        
+        # Look for subsets of size 3
+        if len(params) >= THRESHOLDS["DATA_CLUMP_FIELDS"]:
+            # Simple check: store the sorted tuple of types
+            # (Better would be types+names or just types if distinct enough)
+            group = tuple(sorted(params))
+            param_groups[group] += 1
+            
+    for group, count in param_groups.items():
+        if count >= 2: # Appears in at least 2 methods (heuristic for single file)
+             smells.append({
+                "type": "Data Clumps",
+                "location": f"Global (Method Parameters)",
+                "severity": "Medium",
+                "reason": f"Parameter group {group} appears in {count} methods",
+                "suggestedRefactoring": "Extract Class"
+            })
+
     return smells
 
 def detect_oo_abusers(tree, source_code_lines):
     smells = []
     
-    # Switch Statements
+    # 1. Switch Statements (Existing)
     for path, node in tree.filter(SwitchStatement):
-        # Check cases
         cases = node.cases
         if len(cases) > THRESHOLDS["SWITCH_CASES"]:
              smells.append({
@@ -136,19 +129,60 @@ def detect_oo_abusers(tree, source_code_lines):
                 "suggestedRefactoring": "Replace Conditional with Polymorphism"
             })
             
-    # Temporary Field (Hard to detect accurately without data flow)
-    # Heuristic: Field only used in one method?
-    # We will skip complex data flow for this academic tool and focus on easier ones or simplistic heuristic.
-    # Simplified Heuristic: If a class has a field that appears to be used in only 1 method (excluding setters/getters).
+    # 2. Temporary Field (New)
+    # Heuristic: Field used in only one method (and not getter/setter)
+    class_fields = set()
+    for path, node in tree.filter(ClassDeclaration):
+        for field in node.fields:
+             for declarator in field.declarators:
+                 class_fields.add(declarator.name)
     
+    field_usage = {f: set() for f in class_fields}
+    for path, node in tree.filter(MethodDeclaration):
+        # Walk method body to find refs
+        for _, ref in node.filter(MemberReference):
+            if ref.member in class_fields:
+                field_usage[ref.member].add(node.name)
+                
+    for field, methods in field_usage.items():
+        # exclude setters/getters roughly
+        real_usage = [m for m in methods if not (m.startswith("set") or m.startswith("get"))]
+        if len(real_usage) == 1:
+             smells.append({
+                "type": "Temporary Field",
+                "location": f"Field '{field}'",
+                "severity": "Low",
+                "reason": f"Field used mainly in single method '{list(real_usage)[0]}'",
+                "suggestedRefactoring": "Extract Class"
+            })
+
+    # 3. Refused Bequest (New)
+    # Heuristic: Method overrides but throws UnsupportedOperationException
+    for path, node in tree.filter(MethodDeclaration):
+        # We can't easily check @Override without resolving annotations fully or inheritance, 
+        # but we can look for specific exception
+        if node.throws and 'UnsupportedOperationException' in node.throws:
+             smells.append({
+                "type": "Refused Bequest",
+                "location": f"{node.name}()",
+                "severity": "Medium",
+                "reason": "Method throws UnsupportedOperationException",
+                "suggestedRefactoring": "Push Down Method / Extract Superclass"
+            })
+        # Check body for strict throw
+        if node.body and len(node.body) == 1:
+            stmt = node.body[0]
+            if isinstance(stmt, ThrowStatement):
+                # Check what is thrown.. hard to deep dive in simplified AST usage
+                pass # Javalang structure for Throw is generic
+
     return smells
 
 def detect_dispensables(tree, source_code_lines):
     smells = []
     
-    # 1. Duplicate Code (Text based)
-    # Sliding window of 6 lines
-    lines = [l.strip() for l in source_code_lines if l.strip()] # Ignore empty lines
+    # 1. Duplicate Code (Existing)
+    lines = [l.strip() for l in source_code_lines if l.strip()]
     if len(lines) > THRESHOLDS["DUPLICATE_CODE_BLOCK"]:
         seen_blocks = {}
         window_size = THRESHOLDS["DUPLICATE_CODE_BLOCK"]
@@ -157,27 +191,66 @@ def detect_dispensables(tree, source_code_lines):
             if block in seen_blocks:
                 smells.append({
                     "type": "Duplicate Code",
-                    "location": f"Lines near {i}", # Rough location
+                    "location": f"Lines near {i}",
                     "severity": "Medium",
                     "reason": "Identical block of code detected multiple times",
                     "suggestedRefactoring": "Extract Method"
                 })
-                break # Just report once per file to avoid noise
+                break 
             seen_blocks[block] = i
 
-    # 2. Data Class
-    # Class has methods, but all of them start with get/set/is or are constructors?
+    # 2. Dead Code (New: Private methods never called)
+    private_methods = set()
+    all_calls = set()
+    
+    for path, node in tree.filter(MethodDeclaration):
+        if 'private' in node.modifiers:
+            private_methods.add(node.name)
+        
+        # Collect calls in this method body
+        for _, invocation in node.filter(MethodInvocation):
+            all_calls.add(invocation.member)
+            
+    dead_methods = private_methods - all_calls
+    for dm in dead_methods:
+         smells.append({
+            "type": "Dead Code",
+            "location": f"{dm}()",
+            "severity": "Medium",
+            "reason": "Private method is never called within the file",
+            "suggestedRefactoring": "Inline Method / Delete Code"
+        })
+
+    # 3. Lazy Class (New)
+    for path, node in tree.filter(ClassDeclaration):
+        # Heuristic: Few methods (excluding getters/setters) and fields
+        methods = node.methods
+        real_methods = [m for m in methods if not (m.name.startswith("get") or m.name.startswith("set"))]
+        
+        if len(real_methods) < THRESHOLDS["LAZY_CLASS_METHODS"] and len(node.fields) < 2:
+             smells.append({
+                "type": "Lazy Class",
+                "location": node.name,
+                "severity": "Low",
+                "reason": "Class has very little functionality/data",
+                "suggestedRefactoring": "Collapse Hierarchy / Inline Class"
+            })
+            
+    # 4. Data Class (Existing) - Logic: Mostly getters/setters
     for path, node in tree.filter(ClassDeclaration):
         methods = node.methods
         if len(methods) > 2:
             is_data_class = True
+            non_accessors = 0
             for m in methods:
                 name = m.name
                 if not (name.startswith("get") or name.startswith("set") or name.startswith("is")):
                     is_data_class = False
-                    break
+                    non_accessors += 1
             
-            if is_data_class:
+            # Refined: If >90% are accessors
+            ratio = (len(methods) - non_accessors) / len(methods)
+            if ratio > 0.9: 
                  smells.append({
                     "type": "Data Class",
                     "location": node.name,
@@ -191,17 +264,16 @@ def detect_dispensables(tree, source_code_lines):
 def detect_couplers(tree, source_code_lines):
     smells = []
     
-    # Message Chains: a.b().c().d()
-    for path, node in tree.filter(MethodInvocation):
-        # This is tricky in Javalang. Chained calls are often nested selectors or nested MethodInvocations.
-        # We might just grep for this one or look at the structure.
-        # Heuristic: count dots in the source line?
-        pass # Todo: refine
+    # 1. Feature Envy (New: Simple Heuristic)
+    # Check if a method uses more fields/methods from another class than its own (rough check)
+    for path, node in tree.filter(MethodDeclaration):
+        # Count 'this.' or implicit field access vs 'otherObject.'
+        pass # Without symbol table/types, this is very hard to guess accurately.
+        # Simple Proxy: Count variables that have many methods called on them?
         
-    # Grep-based Message Chain & Feature Envy (Simple)
+    # 2. Message Chains (New)
     for i, line in enumerate(source_code_lines):
-        # Message Chain
-        if line.count("().") > 2:
+        if line.count("().") >= THRESHOLDS["MESSAGE_CHAIN_LENGTH"]:
             smells.append({
                 "type": "Message Chains",
                 "location": f"Line {i+1}",
@@ -210,4 +282,14 @@ def detect_couplers(tree, source_code_lines):
                 "suggestedRefactoring": "Hide Delegate"
             })
             
+    # 3. Middle Man (New)
+    # Method bodies strictly delegates: return x.foo()
+    for path, node in tree.filter(MethodDeclaration):
+        if node.body and len(node.body) == 1:
+            stmt = node.body[0]
+            # Check if it's a return statement with a method invocation
+            # Or just an expression statement
+            # This is intricate AST matching. 
+            pass
+
     return smells
