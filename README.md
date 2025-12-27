@@ -11,14 +11,23 @@ A web-based static analysis tool designed for academic software re-engineering c
 ## Supported Code Smells
 | Category | Smell | Heuristic |
 |----------|-------|-----------|
+| Category | Smell | Heuristic |
+|----------|-------|-----------|
 | **Bloaters** | Long Method | > 40 lines (estimated) |
 | | Large Class | > 15 methods |
 | | Long Parameter List | > 4 parameters |
 | | Primitive Obsession | > 50% fields are primitives |
+| | Data Clumps | Groups of ≥3 parameters repeated in ≥2 methods |
 | **OO Abusers** | Switch Statements | > 5 cases |
+| | Temporary Field | Field used in only 1 method (excluding accessors) |
+| | Refused Bequest | Method throws `UnsupportedOperationException` |
 | **Dispensables** | Duplicate Code | Identical block > 6 lines |
-| | Data Class | Class with only getters/setters/constructors |
-| **Couplers** | Message Chains | `a().b().c().d()` pattern (Basic detection) |
+| | Dead Code | Private method never called within class |
+| | Lazy Class | < 3 methods and < 2 fields |
+| | Data Class | Class with >90% getters/setters |
+| **Couplers** | Message Chains | `a().b().c().d()` pattern (> 3 calls) |
+| | Feature Envy | Method uses frequent foreign data (Simplified) |
+| | Middle Man | Method purely delegates to another object |
 
 ## Setup & Running
 
