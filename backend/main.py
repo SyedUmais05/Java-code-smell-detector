@@ -35,6 +35,16 @@ async def analyze_endpoint(request: CodeRequest):
     result = analyze_code(request.sourceCode)
     return result
 
+@app.get("/api")
+def api_root():
+    return {"status": "ok", "message": "API is reachable via /api"}
+
+# Catch-all OPTIONS for preflight if Vercel doesn't handle it (it usually does, but safe to add)
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    return {"status": "ok"}
+
+
 @app.get("/")
 def read_root():
     return {"status": "active", "message": "Code Smell Detection API is running"}
