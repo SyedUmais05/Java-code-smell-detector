@@ -92,19 +92,32 @@ const Home = () => {
 
                     <div className="team-grid">
                         {[
-                            { id: 1, name: "Syed Umais", role: "Cross-Platform App Developer" },
-                            { id: 2, name: "Danial Saleem", role: "Cybersecurity Engineer" },
+                            { id: 1, name: "Syed Umais", role: "Cross-Platform App Developer", linkedin: "https://www.linkedin.com/in/syed-umais-ix3" },
+                            { id: 2, name: "Danial Saleem", role: "Cybersecurity Engineer", linkedin: "https://www.linkedin.com/in/danial-saleem-38144225a/" },
                             { id: 3, name: "Atta Ur Rehman", role: "UML / Documentation Specialist" },
                             { id: 4, name: "M Faseeh", role: "Full-Stack Web Developer" },
                             { id: 5, name: "Muhammad Raza", role: "Game Developer" }
                         ].map((member) => (
                             <div key={member.id} className="team-card">
-                                <div className="team-img-wrapper">
-                                    <img src={`/p${member.id}.jpg`} alt={member.name} className="team-img"
-                                        onError={(e) => { e.target.src = 'https://via.placeholder.com/150' }} />
-                                </div>
-                                <h3>{member.name}</h3>
-                                <span className="team-role">{member.role}</span>
+                                {member.linkedin ? (
+                                    <a href={member.linkedin} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: 'inherit', display: 'block', height: '100%' }}>
+                                        <div className="team-img-wrapper">
+                                            <img src={`/p${member.id}.jpg`} alt={member.name} className="team-img"
+                                                onError={(e) => { e.target.src = 'https://via.placeholder.com/150' }} />
+                                        </div>
+                                        <h3>{member.name}</h3>
+                                        <span className="team-role">{member.role}</span>
+                                    </a>
+                                ) : (
+                                    <>
+                                        <div className="team-img-wrapper">
+                                            <img src={`/p${member.id}.jpg`} alt={member.name} className="team-img"
+                                                onError={(e) => { e.target.src = 'https://via.placeholder.com/150' }} />
+                                        </div>
+                                        <h3>{member.name}</h3>
+                                        <span className="team-role">{member.role}</span>
+                                    </>
+                                )}
                             </div>
                         ))}
                     </div>
