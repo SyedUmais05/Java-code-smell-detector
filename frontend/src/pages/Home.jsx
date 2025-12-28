@@ -91,14 +91,20 @@ const Home = () => {
                     </div>
 
                     <div className="team-grid">
-                        {[1, 2, 3, 4, 5].map((id) => (
-                            <div key={id} className="team-card">
+                        {[
+                            { id: 1, name: "Syed Umais", role: "Cross-Platform App Developer" },
+                            { id: 2, name: "Danial Saleem", role: "Cybersecurity Engineer" },
+                            { id: 3, name: "Atta Ur Rehman", role: "UML / Documentation Specialist" },
+                            { id: 4, name: "M Faseeh", role: "Full-Stack Web Developer" },
+                            { id: 5, name: "Muhammad Raza", role: "Game Developer" }
+                        ].map((member) => (
+                            <div key={member.id} className="team-card">
                                 <div className="team-img-wrapper">
-                                    <img src={`/p${id}.jpg`} alt={`Member ${id}`} className="team-img"
+                                    <img src={`/p${member.id}.jpg`} alt={member.name} className="team-img"
                                         onError={(e) => { e.target.src = 'https://via.placeholder.com/150' }} />
                                 </div>
-                                <h3>Member {id}</h3>
-                                <span className="team-role">Full Stack Developer</span>
+                                <h3>{member.name}</h3>
+                                <span className="team-role">{member.role}</span>
                             </div>
                         ))}
                     </div>
