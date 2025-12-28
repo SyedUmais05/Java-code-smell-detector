@@ -1,14 +1,19 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-from analyzer import analyze_code
+import uvicorn
+# Fix potential import error if running from different dirs
+try:
+    from analyzer import analyze_code
+except ImportError:
+    from .analyzer import analyze_code
 
 app = FastAPI(title="Code Smell Detector API")
 
 # Enable CORS for frontend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all for development
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,3 +37,6 @@ async def analyze_endpoint(request: CodeRequest):
 @app.get("/")
 def read_root():
     return {"status": "active", "message": "Code Smell Detection API is running"}
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
