@@ -5,7 +5,11 @@
             "destination": "/backend/main.py"
         },
         {
-            "source": "/(.*)",
+            "source": "/assets/(.*)",
+            "destination": "/assets/$1"
+        },
+        {
+            "source": "/((?!api/|assets/|.*\\..*).*)",
             "destination": "/index.html"
         }
     ],

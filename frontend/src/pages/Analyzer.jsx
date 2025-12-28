@@ -14,7 +14,8 @@ const Analyzer = () => {
         setError('');
 
         try {
-            const response = await axios.post('http://localhost:8000/analyze', {
+            // Relative path works for both Vite Proxy (Local) and Vercel Redirect (Prod)
+            const response = await axios.post('/api/analyze', {
                 sourceCode: code
             });
             setReport(response.data);

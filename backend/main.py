@@ -22,7 +22,7 @@ app.add_middleware(
 class CodeRequest(BaseModel):
     sourceCode: str
 
-@app.post("/analyze")
+@app.post("/api/analyze")
 async def analyze_endpoint(request: CodeRequest):
     if not request.sourceCode.strip():
         raise HTTPException(status_code=400, detail="Source code cannot be empty")
