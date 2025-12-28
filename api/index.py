@@ -23,6 +23,7 @@ class CodeRequest(BaseModel):
     sourceCode: str
 
 @app.post("/api/analyze")
+@app.post("/analyze")
 async def analyze_endpoint(request: CodeRequest):
     if not request.sourceCode.strip():
         raise HTTPException(status_code=400, detail="Source code cannot be empty")
